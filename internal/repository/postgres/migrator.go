@@ -19,7 +19,7 @@ func (manager *Manager) Migrate() {
 	}
 
 	m, err := migrate.NewWithDatabaseInstance(
-		"file://internal//repository//migrations",
+		"file://internal//repository//postgres//migrations",
 		"postgres",
 		driver,
 	)
