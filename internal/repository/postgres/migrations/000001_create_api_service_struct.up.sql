@@ -1,6 +1,7 @@
 CREATE TABLE universities (
   id INTEGER PRIMARY KEY,
   name TEXT UNIQUE,
+  api_url TEXT,
   schedule bool
 );
 
@@ -9,7 +10,7 @@ CREATE TABLE users (
   chat_id TEXT UNIQUE, -- id чата/пользователя в Max
   name TEXT,
   group TEXT,
-  university INTEGER,
+  university_id INTEGER,
   FOREIGN KEY (university) REFERENCES universities(id)
 );
 

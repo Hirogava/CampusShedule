@@ -9,14 +9,14 @@ import (
 
 	"github.com/Hirogava/CampusShedule/internal/config/logger"
 	botHanlders "github.com/Hirogava/CampusShedule/internal/maxbot"
+	"github.com/Hirogava/CampusShedule/internal/repository/postgres"
 	maxbot "github.com/max-messenger/max-bot-api-client-go"
 	"github.com/max-messenger/max-bot-api-client-go/configservice"
 )
 
-func SetMaxConf() {
+func SetMaxConf(manager *postgres.Manager) {
 	var configPath string
 	var maxenv = os.Getenv("MAXBOT_ENV")
-	// Customize ConsoleWriter
 	
 	if maxenv != "" {
 		configPath = "/go/bin/config/app-" + maxenv + ".yaml"
@@ -57,5 +57,5 @@ func SetMaxConf() {
 		fmt.Printf("	: %#v", chat.ChatId)
 	}
 
-	botHanlders.StartListening(api, ctx)
+	botHanlders.StartListening(api, manager, ctx)
 }
