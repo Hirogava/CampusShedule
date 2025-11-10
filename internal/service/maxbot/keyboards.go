@@ -5,6 +5,7 @@ import (
 
 	"github.com/Hirogava/CampusShedule/internal/config/logger"
 	"github.com/Hirogava/CampusShedule/internal/models/buttons"
+	"github.com/Hirogava/CampusShedule/internal/models/db"
 	"github.com/Hirogava/CampusShedule/internal/repository/postgres"
 	maxbot "github.com/max-messenger/max-bot-api-client-go"
 	"github.com/max-messenger/max-bot-api-client-go/schemes"
@@ -40,13 +41,13 @@ func CreateKeyboardForUniversities(api *maxbot.Api, manager *postgres.Manager) *
 	return kb
 }
 
-func CreateKeyboardForGroups(api *maxbot.Api, groups []string) *maxbot.Keyboard {
+func CreateKeyboardForGroups(api *maxbot.Api, groups []db.Group) *maxbot.Keyboard {
 	kb := api.Messages.NewKeyboardBuilder()
 
 	for _, group := range groups {
 		kb.
 			AddRow().
-			AddCallback(group, schemes.POSITIVE, fmt.Sprintf("group:%s", group))
+			AddCallback(group.Name, schemes.POSITIVE, fmt.Sprintf("group:%d", group.ID))
 	}
 
 	return kb

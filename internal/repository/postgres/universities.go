@@ -1,7 +1,10 @@
 package postgres
 
 import (
+	"context"
 	"database/sql"
+	"fmt"
+	"time"
 
 	"github.com/Hirogava/CampusShedule/internal/config/logger"
 	dbErrors "github.com/Hirogava/CampusShedule/internal/errors/db"
@@ -84,10 +87,10 @@ func (manager *Manager) SetUserUniversity(userID int64, universityID int) (strin
 	return apiURL, nil
 }
 
-func (manager *Manager) SetUserGroup(userID int64, group string) error {
+func (manager *Manager) SetUserGroup(userID int64, group int) error {
 	_, err := manager.Conn.Exec(`
-		UPDATE users SET group_name = $1 WHERE id = $2
-	`)
+		UPDATE users SET group_id = $1 WHERE id = $2
+	`, group, userID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			logger.Logger.Warn("User not found", "id", userID)
@@ -99,4 +102,110 @@ func (manager *Manager) SetUserGroup(userID int64, group string) error {
 	}
 
 	return nil
+}
+
+func (manager *Manager) GetUniversityGroups(universityID int) ([]dbModels.Group, error) {
+	rows, err := manager.Conn.Query(`
+		SELECT g.id, g.name
+		FROM groups g
+		JOIN universities_groups ug ON g.id = ug.group_id
+		WHERE ug.university_id = $1
+		ORDER BY g.name`, universityID)
+	if err != nil {
+		logger.Logger.Error("Failed to get university groups", "error", err.Error())
+		return nil, err
+	}
+
+	var groups []dbModels.Group
+	for rows.Next() {
+		var group dbModels.Group
+
+		if err := rows.Scan(&group.ID, &group.Name); err != nil {
+			logger.Logger.Error("Failed to scan group", "error", err.Error())
+			return nil, err
+		}
+
+		groups = append(groups, group)
+	}
+
+	return groups, nil
+}
+
+func (manager *Manager) GetUserGroup(userID int64) (int, error) {
+	var groupID int
+
+	if err := manager.Conn.QueryRow("SELECT group_id FROM users WHERE id = $1", userID).Scan(&groupID); err != nil {
+		if err == sql.ErrNoRows {
+			logger.Logger.Warn("User not found", "id", userID)
+			return 0, dbErrors.ErrUserNotFound
+		}
+		return 0, err
+	}
+
+	return groupID, nil
+}
+
+func (manager *Manager) GetWeekSchedule(ctx context.Context, groupID int) ([]dbModels.Day, error) {
+	now := time.Now()
+	weekday := int(now.Weekday())
+	if weekday == 0 {
+		weekday = 7 // воскресенье → 7
+	}
+	startOfWeek := now.AddDate(0, 0, -weekday+1).Truncate(24 * time.Hour)
+	endOfWeek := startOfWeek.AddDate(0, 0, 7)
+
+	query := `
+		SELECT teacher, room, start_time, end_time, date, type
+		FROM lessons
+		WHERE group_id = $1
+		  AND date >= $2
+		  AND date < $3
+		ORDER BY date, start_time;
+	`
+
+	rows, err := manager.Conn.QueryContext(ctx, query, groupID, startOfWeek, endOfWeek)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка при получении расписания: %w", err)
+	}
+	defer rows.Close()
+
+	daysMap := make(map[string][]dbModels.Lesson)
+
+	for rows.Next() {
+		var lesson dbModels.Lesson
+		var date time.Time
+		var lessonType string
+
+		if err := rows.Scan(
+			&lesson.Teacher,
+			&lesson.Room,
+			&lesson.StartTime,
+			&lesson.EndTime,
+			&date,
+			&lessonType,
+		); err != nil {
+			return nil, fmt.Errorf("ошибка при сканировании строки: %w", err)
+		}
+
+		lesson.Date = date.Format("2006-01-02")
+		lesson.DateOfWeek = date.Weekday().String()
+		lesson.Type = dbModels.LessonType(lessonType)
+
+		daysMap[lesson.DateOfWeek] = append(daysMap[lesson.DateOfWeek], lesson)
+	}
+
+	var result []dbModels.Day
+	order := []time.Weekday{time.Monday, time.Tuesday, time.Wednesday, time.Thursday, time.Friday, time.Saturday, time.Sunday}
+
+	for _, wd := range order {
+		wdStr := wd.String()
+		if lessons, ok := daysMap[wdStr]; ok {
+			result = append(result, dbModels.Day{
+				WeekDay: wdStr,
+				Lessons: lessons,
+			})
+		}
+	}
+
+	return result, nil
 }
