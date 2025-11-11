@@ -58,12 +58,12 @@ func ScheduleHandler(api *maxbot.Api, upd *schemes.MessageCallbackUpdate, manage
 			out := "Произошла ошибка"
 			kb := keyboard.CreateKeyboardForStart(api)
 			helpingErrorCallbackSending(api, upd, kb, out, ctx)
+			return
 		}
 
 		out := keyboard.CreateScheduledMessage(schedule)
 		kb := keyboard.CreateKeyboardForStart(api)
 		helpingErrorCallbackSending(api, upd, kb, out, ctx)
-
 		return
 	}
 

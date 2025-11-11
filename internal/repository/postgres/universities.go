@@ -11,6 +11,16 @@ import (
 	dbModels "github.com/Hirogava/CampusShedule/internal/models/db"
 )
 
+var weekdays = map[time.Weekday]string{
+	time.Monday:    "Понедельник",
+	time.Tuesday:   "Вторник",
+	time.Wednesday: "Среда",
+	time.Thursday:  "Четверг",
+	time.Friday:    "Пятница",
+	time.Saturday:  "Суббота",
+	time.Sunday:    "Воскресенье",
+}
+
 func (manager *Manager) GetUniversities() ([]dbModels.University, error) {
 	var universities []dbModels.University
 
@@ -37,7 +47,7 @@ func (manager *Manager) GetUniversities() ([]dbModels.University, error) {
 func (manager *Manager) HasUserUniversity(userID int64) (bool, error) {
 	var universityID sql.NullInt64
 
-	if err := manager.Conn.QueryRow("SELECT university_id FROM users WHERE id = $1", userID).Scan(&universityID); err != nil {
+	if err := manager.Conn.QueryRow("SELECT university_id FROM users WHERE chat_id = $1", userID).Scan(&universityID); err != nil {
 		if err == sql.ErrNoRows {
 			return false, nil
 		} else {
@@ -73,11 +83,14 @@ func (manager *Manager) SetUserUniversity(userID int64, universityID int) (strin
 	var apiURL string
     
     err := manager.Conn.QueryRow(
-        `INSERT INTO users (id, university_id) 
-         VALUES ($1, $2) 
-         ON CONFLICT (id) DO UPDATE SET university_id = $2
-         RETURNING (SELECT api_url FROM universities WHERE id = $2)`,
-        userID, universityID,
+        `WITH upsert AS (
+			INSERT INTO users (chat_id, university_id)
+			VALUES ($1, $2)
+			ON CONFLICT (id) DO UPDATE SET university_id = EXCLUDED.university_id
+			RETURNING university_id
+		)
+		SELECT api_url FROM universities WHERE id = (SELECT university_id FROM upsert);
+		`,userID, universityID,
     ).Scan(&apiURL)
 	if err != nil {
 		logger.Logger.Error("Failed to set user university", "error", err.Error())
@@ -89,7 +102,7 @@ func (manager *Manager) SetUserUniversity(userID int64, universityID int) (strin
 
 func (manager *Manager) SetUserGroup(userID int64, group int) error {
 	_, err := manager.Conn.Exec(`
-		UPDATE users SET group_id = $1 WHERE id = $2
+		UPDATE users SET group_id = $1 WHERE chat_id = $2
 	`, group, userID)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -132,17 +145,21 @@ func (manager *Manager) GetUniversityGroups(universityID int) ([]dbModels.Group,
 }
 
 func (manager *Manager) GetUserGroup(userID int64) (int, error) {
-	var groupID int
+	var groupID sql.NullInt64
 
-	if err := manager.Conn.QueryRow("SELECT group_id FROM users WHERE id = $1", userID).Scan(&groupID); err != nil {
+	err := manager.Conn.QueryRow("SELECT group_id FROM users WHERE id = $1", userID).Scan(&groupID)
+	if err != nil {
 		if err == sql.ErrNoRows {
-			logger.Logger.Warn("User not found", "id", userID)
 			return 0, dbErrors.ErrUserNotFound
 		}
 		return 0, err
 	}
 
-	return groupID, nil
+	if !groupID.Valid {
+		return 0, dbErrors.ErrUserNotFound
+	}
+
+	return int(groupID.Int64), nil
 }
 
 func (manager *Manager) GetWeekSchedule(ctx context.Context, groupID int) ([]dbModels.Day, error) {
@@ -188,7 +205,7 @@ func (manager *Manager) GetWeekSchedule(ctx context.Context, groupID int) ([]dbM
 		}
 
 		lesson.Date = date.Format("2006-01-02")
-		lesson.DateOfWeek = date.Weekday().String()
+		lesson.DateOfWeek = weekdays[date.Weekday()]
 		lesson.Type = dbModels.LessonType(lessonType)
 
 		daysMap[lesson.DateOfWeek] = append(daysMap[lesson.DateOfWeek], lesson)

@@ -30,7 +30,7 @@ func StartListening(api *maxbot.Api, manager *postgres.Manager, ctx context.Cont
 					msg.SetUser(upd.Message.Recipient.UserId)
 				}
 
-				go HandleCallback(api, upd, manager, ctx)
+				HandleCallback(api, upd, manager, ctx)
 
 				switch upd.Callback.Payload {
 				case string(buttons.BtnSchedule):
