@@ -3,6 +3,7 @@ package maxbot
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/Hirogava/CampusShedule/internal/config/logger"
 	"github.com/Hirogava/CampusShedule/internal/handlers"
@@ -13,12 +14,14 @@ import (
 )
 
 func StartListening(api *maxbot.Api, manager *postgres.Manager, ctx context.Context) {
+	scheduler := NewScheduler(api, manager, time.Minute, 10*time.Minute)
+	go scheduler.Start(ctx)
+
 	for upd := range api.GetUpdates(ctx) {
 		api.Debugs.Send(ctx, upd)
 
 		switch upd := upd.(type) {
 			case *schemes.MessageCreatedUpdate:
-				out := "bot прочитал текст: " + upd.Message.Body.Text // текст сообщения
 				switch upd.GetCommand() {
 					case "/start":
 						handlers.StartHandler(api, upd, ctx)
@@ -30,7 +33,8 @@ func StartListening(api *maxbot.Api, manager *postgres.Manager, ctx context.Cont
 					msg.SetUser(upd.Message.Recipient.UserId)
 				}
 
-				HandleCallback(api, upd, manager, ctx)
+				HandleCallbackSchedule(api, upd, manager, ctx)
+				HandleCallbackBack(api, upd, manager, ctx)
 
 				switch upd.Callback.Payload {
 				case string(buttons.BtnSchedule):
@@ -44,7 +48,7 @@ func StartListening(api *maxbot.Api, manager *postgres.Manager, ctx context.Cont
 	}
 }
 
-func HandleCallback(api *maxbot.Api, upd *schemes.MessageCallbackUpdate, manager *postgres.Manager, ctx context.Context) {
+func HandleCallbackSchedule(api *maxbot.Api, upd *schemes.MessageCallbackUpdate, manager *postgres.Manager, ctx context.Context) {
 	data := upd.Callback.Payload
 
 	if strings.HasPrefix(data, "uni:") {
@@ -57,5 +61,16 @@ func HandleCallback(api *maxbot.Api, upd *schemes.MessageCallbackUpdate, manager
 		group := strings.TrimPrefix(data, "group:")
 		handlers.HandleGroupSelection(api, upd, manager, ctx, group)
 		return
+	}
+}
+
+func HandleCallbackBack(api *maxbot.Api, upd *schemes.MessageCallbackUpdate, manager *postgres.Manager, ctx context.Context) {
+	data := upd.Callback.Payload
+
+	if strings.HasPrefix(data, "back:") {
+		switch {
+			case strings.HasPrefix(data, "back:start"):
+				handlers.StartHandlerForBack(api, upd, ctx)
+		}
 	}
 }

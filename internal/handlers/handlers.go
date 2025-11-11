@@ -23,6 +23,17 @@ func StartHandler(api *maxbot.Api, upd *schemes.MessageCreatedUpdate, ctx contex
 	}
 }
 
+func StartHandlerForBack(api *maxbot.Api, upd *schemes.MessageCallbackUpdate, ctx context.Context) {
+	out := "Приветствую блаблаб"
+	kb := keyboard.CreateKeyboardForStart(api)
+	res, err := api.Messages.Send(ctx, maxbot.NewMessage().SetChat(upd.Message.Recipient.ChatId).AddKeyboard(kb).SetText(out))
+	if err != nil {
+		logger.Logger.Printf("Error sending message: %v", err)
+	} else {
+		logger.Logger.Printf("Message sent: %v", res)
+	}
+}
+
 func ScheduleHandler(api *maxbot.Api, upd *schemes.MessageCallbackUpdate, manager *postgres.Manager, ctx context.Context) {
 	userID := upd.Message.Sender.UserId
 
@@ -32,6 +43,7 @@ func ScheduleHandler(api *maxbot.Api, upd *schemes.MessageCallbackUpdate, manage
 		return
 	}
 
+	// тут крч нужны апи университетов, поэтому пока просто тестовые данные, а так будет запрос к апи, который берется из бд в прошлой функции
 	if hasUniversity {
 		groupID, err := manager.GetUserGroup(userID)
 		if err != nil {
@@ -88,7 +100,7 @@ func HandleUniversitySelection(api *maxbot.Api, upd *schemes.MessageCallbackUpda
 	}
 
 	out := "Выберите группу"
-	kb := keyboard.CreateKeyboardForGroups(api, groups)
+	kb := keyboard.CreateKeyboardForGroups(api, groups, intID)
 	helpingErrorCallbackSending(api, upd, kb, out, ctx)
 }
 

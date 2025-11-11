@@ -1,24 +1,26 @@
 package db
 
+import "time"
+
 type University struct {
-	ID int
+	ID   int
 	Name string
 }
 
 type Group struct {
-	ID int
+	ID   int
 	Name string
 }
 
 type LessonType string
 
 const (
-	Lecture LessonType = "lecture"
-	Seminar LessonType = "seminar"
+	Lecture  LessonType = "lecture"
+	Seminar  LessonType = "seminar"
 	Practice LessonType = "practice"
-	Test LessonType = "test"
-	Exam LessonType = "exam"
-	Webinar LessonType = "webinar"
+	Test     LessonType = "test"
+	Exam     LessonType = "exam"
+	Webinar  LessonType = "webinar"
 )
 
 func (t LessonType) String() string {
@@ -60,16 +62,25 @@ func (t LessonType) TypeToEmoji() string {
 }
 
 type Lesson struct {
-	Teacher string
-	Room string
-	StartTime string
-	EndTime string
-	Date string
+	Teacher    string
+	Room       string
+	StartTime  string
+	EndTime    string
+	Date       string
 	DateOfWeek string
-	Type LessonType
+	Type       LessonType
 }
 
 type Day struct {
 	Lessons []Lesson
 	WeekDay string
+}
+
+type LessonNotify struct {
+	Name      string
+	Teacher   string
+	Room      string
+	StartTime time.Time
+	Type      string
+	ChatID    int64
 }

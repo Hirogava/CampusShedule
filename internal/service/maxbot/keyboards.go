@@ -37,11 +37,15 @@ func CreateKeyboardForUniversities(api *maxbot.Api, manager *postgres.Manager) *
 	for _, university := range universities {
 		kb.AddRow().AddCallback(university.Name, schemes.POSITIVE, fmt.Sprintf("uni:%d", university.ID))
 	}
+	kb.
+		AddRow().
+		AddCallback("🔙 Назад", schemes.POSITIVE, "back:start")
+
 
 	return kb
 }
 
-func CreateKeyboardForGroups(api *maxbot.Api, groups []db.Group) *maxbot.Keyboard {
+func CreateKeyboardForGroups(api *maxbot.Api, groups []db.Group, uniID int) *maxbot.Keyboard {
 	kb := api.Messages.NewKeyboardBuilder()
 
 	for _, group := range groups {
@@ -49,6 +53,9 @@ func CreateKeyboardForGroups(api *maxbot.Api, groups []db.Group) *maxbot.Keyboar
 			AddRow().
 			AddCallback(group.Name, schemes.POSITIVE, fmt.Sprintf("group:%d", group.ID))
 	}
+	kb.
+		AddRow().
+		AddCallback("🔙 Назад", schemes.POSITIVE, fmt.Sprintf("uni:%d", uniID))
 
 	return kb
 }
